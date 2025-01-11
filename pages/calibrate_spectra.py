@@ -24,7 +24,7 @@ st.divider()
 
 # 調査するファイルを選択
 display_handler.display_title_with_link(
-    title="1. 温度を計算するファイルを選択",
+    title="1. 露光ファイル選択",
     link_title="1. 露光ファイル選択",
     tag="select_file"
 )
@@ -61,6 +61,7 @@ if file_name.endswith('.spe'):
     original_radiation = RawSpectrumData(spe)
     try:
         # おそらくspe ver.3 以上でないとできない。あと設定されていないと取得できない。
+        # 失敗した場合はターミナルにログを吐き出してskipされる
         spe.get_params_from_xml()
         # メタ情報を表示
         # FIXME: 辞書にして表示で揃える
@@ -70,7 +71,6 @@ if file_name.endswith('.spe'):
         date_obj = datetime.fromisoformat(spe.date[:26]+spe.date[-6:])
         calibration_date_obj = datetime.fromisoformat(spe.calibration_date[:26]+spe.calibration_date[-6:])
         st.write(f'取得日時: {date_obj.strftime("%Y年%m月%d日 %H時%M分%S秒")}')
-
     except Exception as e:
         print(e)
 else:
@@ -79,38 +79,10 @@ else:
 st.divider()
 
 display_handler.display_title_with_link(
-    title="2. パラメータを設定",
-    link_title="2. パラメータを設定",
+    title="2. 校正設定",
+    link_title="2. 校正設定",
     tag="set_parameter"
 )
-
-st.markdown('') # 表示上のスペース確保
-# 波長配列を取得しておく
-wavelength_arr = original_radiation.get_wavelength_arr()
-min_wavelength = min(wavelength_arr) # 端の値を取得
-max_wavelength = max(wavelength_arr)
-int_min_wavelength = int(min_wavelength) # 整数としても持っておく
-int_max_wavelength = int(max_wavelength)
-# 波長範囲を設定 / 範囲波長を表示
-st.markdown(f'##### 採用する波長領域を設定 / {round(min_wavelength, 1)} - {round(max_wavelength, 1)} nm')
-# 設定するための入力フィールド
-wl_col_1, wl_col_2 = st.columns(2)
-with wl_col_1:
-    lower_wavelength = st.number_input(
-        label=f'下限 ({int_min_wavelength} nm 以上)',
-        min_value=int_min_wavelength,
-        max_value=int_max_wavelength-1,
-        value=600 if ((600>=int_min_wavelength) and (600<=int_max_wavelength)) else int_min_wavelength, # 読みづらくてすみませんが三項演算子です
-        step=1
-    )
-with wl_col_2:
-    upper = st.number_input(
-        label=f'上限 ({int_max_wavelength} nm 以下)',
-        min_value=lower_wavelength+1,
-        max_value=int_max_wavelength,
-        value=800 if 800>=int_min_wavelength and 800<=int_max_wavelength else int_max_wavelength,
-        step=1
-    )
 
 st.markdown('') # 表示上のスペース確保
 st.markdown('##### 校正ファイルを選択')
@@ -148,6 +120,24 @@ match calibration_select_option:
         st.write('想定外の挙動')
         st.stop()
 
-st.markdown('') # 表示上のスペース確保
-st.markdown('##### 計算するpositionをしきい値によって決定')
+st.divider()
+display_handler.display_title_with_link(
+    title="3. 確認して校正実行",
+    link_title="3. 確認して校正実行",
+    tag="calibrate"
+)
 
+output_file_option = st.radio(
+    label='出力するファイル形式を選択',
+    options=['`.hdf5`', '`.spe`'],
+)
+
+match output_file_option:
+    case '`.spe`':
+        st.write('実装されていません（LightFieldでできます）')
+        st.stop()
+    case '`.hdf5`':
+        st.button('`.hdf`に書き出し')
+    case _:
+        st.write('想定外の挙動')
+        st.stop()

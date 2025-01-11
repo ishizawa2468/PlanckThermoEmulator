@@ -48,12 +48,11 @@ class LightfieldCsv:
         self.position_pixel_num = position_pixel_num
 
     def get_frame_temperature(self, frame):
-        # NOTE: frameは1始まり
         self.allow_only_dist()
         return pd.read_csv(
             self.file_path,
             names=['ROI', 'Frame', 'Row', 'Column', 'Wavelength', 'Intensity'],
-            skiprows= (frame-1) * self.position_pixel_num + 1, # header分1行飛ばす
+            skiprows= frame * self.position_pixel_num + 1, # header分1行飛ばす
             nrows=self.position_pixel_num
         )['Intensity']
 
@@ -68,25 +67,23 @@ class LightfieldCsv:
         self.wavelength_pixel_num = wavelength_pixel_num
 
     def get_spectrum(self, frame, position_pixel):
-        # NOTE: frame, position_pixelは1始まり
         self.allow_only_calib()
         return pd.read_csv(
             self.file_path,
             names=['ROI', 'Frame', 'Row', 'Column', 'Wavelength', 'Intensity'],
             skiprows=
-                (frame-1) * self.position_pixel_num * self.wavelength_pixel_num + # 前frameまでをすべてskip
-                (position_pixel - 1) * self.wavelength_pixel_num + 1, # 前positionまで, header分をskip
+                frame * self.position_pixel_num * self.wavelength_pixel_num + # 前frameまでをすべてskip
+                position_pixel * self.wavelength_pixel_num + 1, # 前positionまで, header分をskip
             nrows=self.wavelength_pixel_num,
             usecols=['Wavelength', 'Intensity']  # 必要な列のみを読み込む
         )
 
     def get_frame_spectra(self, frame):
-        # NOTE: frameは1始まり
         self.allow_only_calib()
         return pd.read_csv(
             self.file_path,
             names=['ROI', 'Frame', 'Row', 'Column', 'Wavelength', 'Intensity'],
-            skiprows= (frame-1) * self.position_pixel_num * self.wavelength_pixel_num + 1,
+            skiprows= frame * self.position_pixel_num * self.wavelength_pixel_num + 1,
             nrows=self.position_pixel_num * self.wavelength_pixel_num,
             usecols = ['Row', 'Wavelength', 'Intensity']  # 必要な列のみを読み込む
         )
