@@ -98,9 +98,7 @@ class RawSpectrumData:
         """
         match self.file_extension:
             case ".spe":
-                # TODO
-                wavelength_arr = np.range(0, 10)
-                return wavelength_arr
+                return self.spe.get_wavelengths()[0]
             case _:
                 raise ValueError("データ形式(拡張子)に対応していません。")
 
