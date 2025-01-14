@@ -8,16 +8,15 @@ import numpy as np
 
 from app_utils import setting_handler
 from app_utils import display_handler
+from app_utils.file_handler import FileHandler
+from app_utils.writer import CalibrateSpectraWriter
 from modules.file_format.spe_wrapper import SpeWrapper
 from modules.data_model.raw_spectrum_data import RawSpectrumData
 from modules.radiation_fitter import RadiationFitter
 from modules.figure_maker import FigureMaker
 
-# 共通の設定
-# ページリンクを設定する
+# 共通の設定(このページ内ではページ内リンクを設定する)
 setting_handler.set_common_setting(has_link_in_page=True)
-# まず設定インスタンスを作成しておく。これを通してフォルダパスを読み込んだり保存したりする
-setting = setting_handler.Setting()
 
 st.title("📈 Calibrate Spectra")
 st.divider()
@@ -28,6 +27,28 @@ display_handler.display_title_with_link(
     link_title="1. 露光ファイル選択",
     tag="select_file"
 )
+
+# 設定インスタンスを作成しておく。これを通してフォルダパスを読み込んだり保存したりする
+setting = setting_handler.Setting()
+
+st.markdown('') # 表示上のスペース確保
+st.markdown('##### 読み込むフォルダを設定')
+st.markdown(
+    """
+    - ここで設定したフォルダから`.spe`ファイルを選択できます。
+        - Macの場合、Finderでフォルダを選択して `option + command + c`
+        - Windowsの場合、エクスプローラーでフォルダを選択して `shift + control + c`
+    - オリジナルのファイルは読み込むのみで変更されません。
+    """
+)
+read_path = st.text_input(label='オリジナルの`.spe`があるフォルダまでのfull path', value=setting.setting_json['read_path'])
+if st.button('読み込み先を更新'):
+    setting.update_read_spe_path(read_path)
+
+st.divider()
+st.markdown('') # 表示上のスペース確保
+st.markdown('##### ファイルを選択')
+setting = setting_handler.Setting() # オブジェクトを作り直して読み込み直す
 
 path_to_files = setting.setting_json['read_path'] # 別ページで設定した読み込みpathを取得
 # ファイルが得られるpathかどうか確認
@@ -43,13 +64,18 @@ except Exception as e:
 
 # ファイルが見つかった場合
 files.sort() # 見やすいようにソートしておく
-if st.checkbox('.spe拡張子のみを選択肢にする', value=True):
-    filtered_files = [] # .speで終わるもののみを入れるリスト
-    for file in files:
-        if file.endswith('.spe') and not file.startswith('.'):
-            filtered_files.append(file)
-    # 一通り終わったら、filesを置き換える
-    files = filtered_files
+filtered_files = [] # .speで終わるもののみを入れるリスト
+for file in files:
+    if file.endswith('.spe') and not file.startswith('.'):
+        filtered_files.append(file)
+# 一通り終わったら、filesを置き換える
+files = filtered_files
+# 表示
+spe_display_data = FileHandler.get_file_list_with_OD(path_to_files, files)
+for od in (set(spe_display_data['OD'])):
+    st.table(spe_display_data[spe_display_data['OD'] == od])
+
+# .speのみ
 file_name = st.selectbox("ファイルを選択", files)
 
 # もしspeファイルが選択されたらファイル情報を表示し、そうでなければ描画を終了する
@@ -85,36 +111,96 @@ display_handler.display_title_with_link(
 )
 
 st.markdown('') # 表示上のスペース確保
+st.markdown('##### 校正データ読み込みフォルダを設定')
+calib_path = st.text_input(label='校正データフォルダまでのfull path', value=setting.setting_json['calib_path'])
+if st.button('データ読み込み先を更新 '):
+    setting.update_calib_spe_path(calib_path)
+
+setting = setting_handler.Setting() # オブジェクトを作り直して読み込み直す
+path_to_calib = setting.setting_json['calib_path']
+
+# 校正用ファイルを取得する
+lamp_files = {} # key=filename, value=fullpath
+filter_files = {} # 階層化した辞書で、key1=period, key2=OD, key3=stream, key4=filename, value=filename
+all_calib_files = [] # 仕様が変わったときに選択できるように作っておく
+for dirpath, dirnames, filenames in os.walk(path_to_calib):
+    for filename in filenames:
+        # .始まりは最初にskip
+        if filename.startswith('.'):
+            continue
+        # 仕分ける
+        if filename.endswith('.csv'): # ランプデータ
+            lamp_files[filename] = os.path.join(dirpath, filename)
+        elif 'std.spe' in filename:
+            # NOTE: かなりファイル名依存性が高い。少し仕様が変わると使えなくなる
+            period = dirpath.split('/')[-2] # FIXME もしかしたらwindowsだめかも。OSによって区切り文字を辞書にして利用する必要がある
+            OD = filename[0]
+            stream = filename[2:-8]
+            # filter_files内でODとstreamがすでに存在するか確認して追加
+            if period not in filter_files:
+                filter_files[period] = {} # たとえば2024_0403がなければkeyに追加する。いきなり複数keyを追加しようとすると失敗する
+            if OD not in filter_files[period]:
+                filter_files[period][OD] = {}
+            if stream not in filter_files[period][OD]:
+                filter_files[period][OD][stream] = {}
+
+            filter_files[period][OD][stream][filename] = os.path.join(dirpath, filename)
+            # うまく指定できないときのため
+            all_calib_files.append(os.path.join(dirpath, filename))
+        else:
+            continue
+
+st.markdown('') # 表示上のスペース確保
 st.markdown('##### 校正ファイルを選択')
 # ランプデータ
-ramp_data_files = ['demo']
-st.selectbox(
+selected_lamp_file = st.selectbox(
     label='参照ランプデータ',
-    options=ramp_data_files
+    options=lamp_files.keys()
 )
+selected_lamp_path = lamp_files[selected_lamp_file] # fullpathにしておく
 # フィルターデータ
 calibration_select_option = st.radio(
     label='選択オプション',
-    options=['ファイルから選択', '日時とODから選択'],
+    options=['時期とODから選択', 'ファイルから選択(時期・ODで指定できなかったとき用)'],
 )
 match calibration_select_option:
-    case '日時とODから選択':
-        st.write('実装されていません')
-        st.stop()
-    case 'ファイルから選択':
+    case '時期とODから選択':
+        try:
+            # period, OD
+            period_col, OD_col = st.columns(2)
+            with period_col:
+                selected_period = st.selectbox(label='時期', options=filter_files.keys())
+            with OD_col:
+                selected_OD = st.selectbox(label='OD', options=filter_files[selected_period].keys())
+            # up, down
+            up_col, down_col = st.columns(2)
+            with up_col:
+                selected_up_filter_file = st.selectbox(
+                    label='Up',
+                    options=filter_files[selected_period][selected_OD]['Up'].keys()
+                )
+                selected_up_filter_path = filter_files[selected_period][selected_OD]['Up'] # fullpathにしておく
+            with down_col:
+                selected_down_filter_file = st.selectbox(
+                    label='Down',
+                    options=filter_files[selected_period][selected_OD]['Down'].keys()
+                )
+                selected_down_filter_path = filter_files[selected_period][selected_OD]['Down'] # fullpathにしておく
+        except Exception as e:
+            st.write(e.__repr__())
+            st.stop()
+    case 'ファイルから選択(時期・ODで指定できなかったとき用)':
         # 校正ファイルの選択肢を取得
         up_col, down_col = st.columns(2)
-        up_stream_data_files = ['demo']
-        down_stream_data_files = ['demo']
         with up_col:
             st.selectbox(
                 label='Up 応答補正データ (時期, OD)',
-                options=up_stream_data_files
+                options=all_calib_files
             )
         with down_col:
             st.selectbox(
                 label='Down 応答補正データ (時期, OD)',
-                options=down_stream_data_files
+                options=all_calib_files
             )
     case _:
         st.write('想定外の挙動')
@@ -127,17 +213,55 @@ display_handler.display_title_with_link(
     tag="calibrate"
 )
 
+st.markdown('') # 表示上のスペース確保
+st.markdown('##### 元データの確認')
+try:
+    # おそらくspe ver.3 以上でないとできない。あと設定されていないと取得できない。
+    # 失敗した場合はターミナルにログを吐き出してskipされる
+    spe.get_params_from_xml()
+    # メタ情報を表示
+    # FIXME: 辞書にして表示で揃える
+    st.write(f'フィルター: {spe.OD}')
+    st.write(f'Framerate: {spe.framerate} fps')
+    # HACK: chatgpt -> Pythonのdatetime.fromisoformatは標準のISO 8601形式に従い、ミリ秒部分は最大6桁までしか対応していません。
+    date_obj = datetime.fromisoformat(spe.date[:26] + spe.date[-6:])
+    calibration_date_obj = datetime.fromisoformat(spe.calibration_date[:26] + spe.calibration_date[-6:])
+    st.write(f'取得日時: {date_obj.strftime("%Y年%m月%d日 %H時%M分%S秒")}')
+except Exception as e:
+    print(e)
+
+st.markdown('') # 表示上のスペース確保
+st.markdown('##### 校正データの確認')
+selected_calib_files = {
+    'lamp': selected_lamp_path,
+    'Up': selected_up_filter_path,
+    'Down': selected_down_filter_path
+}
+st.write(selected_calib_files)
+
+
+st.divider()
 output_file_option = st.radio(
     label='出力するファイル形式を選択',
     options=['`.hdf5`', '`.spe`'],
 )
 
 match output_file_option:
+    case '`.hdf5`':
+        st.button('`.hdf5`に書き出し')
+        # 必要なオブジェクト化
+
+        # 書き出し処理
+        CalibrateSpectraWriter.output_to_hdf5(
+            # original_radiation=,
+            # ref_spectrum=,
+            # up_filter=,
+            # down_filter=,
+            # path_to_hdf5=
+        )
     case '`.spe`':
         st.write('実装されていません（LightFieldでできます）')
         st.stop()
-    case '`.hdf5`':
-        st.button('`.hdf`に書き出し')
     case _:
         st.write('想定外の挙動')
         st.stop()

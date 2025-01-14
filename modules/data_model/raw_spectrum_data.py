@@ -4,7 +4,7 @@
 
 """
 import functools
-from enum import StrEnum
+from enum import Enum
 
 import numpy as np
 from matplotlib import pyplot as plt
@@ -13,7 +13,7 @@ from scipy.ndimage import rotate
 
 from modules.file_format.spe_wrapper import SpeWrapper
 
-class RotateOption(StrEnum):
+class RotateOption(Enum):
     WHOLE = "whole"
     SEPARATE_HALF = "separate_half"
 

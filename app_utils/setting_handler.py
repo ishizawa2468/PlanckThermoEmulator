@@ -15,7 +15,6 @@ def set_common_setting(has_link_in_page=False):
     st.set_option('client.showSidebarNavigation', False) # デフォルトのサイドバー表示を一旦無効にする。自分でlabelをつけるため。
     with st.sidebar:
         st.page_link("home.py", label="About app", icon="🏠")
-        st.page_link("pages/set_folder.py", label="Set folder", icon="📂")
         st.page_link("pages/calibrate_spectra.py", label="Calibrate Spectra", icon="📈")
         st.page_link("pages/fit_by_planck.py", label="Fit by Planck", icon="🌈")
         st.page_link("pages/calc_by_2color.py", label="2 Color Pyrometer", icon="🎨")
@@ -53,6 +52,9 @@ class Setting:
 
     def update_read_spe_path(self, read_path):
         self._update_setting(key='read_path', value=read_path)
+
+    def update_calib_spe_path(self, calib_path):
+        self._update_setting(key='calib_path', value=calib_path)
 
     def update_save_spe_path(self, save_path):
         self._update_setting(key='save_path', value=save_path)

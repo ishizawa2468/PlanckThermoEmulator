@@ -16,10 +16,9 @@ st.markdown(
         - 現在 `.spe` のみに対応しています。
         - `.spe` ファイルの中にスペクトルの波長配列が含まれている必要があります。
     - 以下のようにページが分かれています。←から選択してください。
-        1. **(必須)** Set folder: `.spe`があるフォルダを選ぶページ
-        2. Calibrate Spectra: 
-        3. Fit by Planck: PlanckThermometerの計算をだいたい再現します。fittingのスケールや誤差も吐き出します。
-        4. 2 Color Pyrometer: 二色法による温度評価を行います。
+        1. Calibrate Spectra: 
+        2. Fit by Planck: PlanckThermometerの計算をだいたい再現します。fittingのスケールや誤差も吐き出します。
+        3. 2 Color Pyrometer: 二色法による温度評価を行います。
     """
 )
 
