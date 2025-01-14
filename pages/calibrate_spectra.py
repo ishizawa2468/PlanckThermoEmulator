@@ -3,6 +3,7 @@ import time
 import os
 from datetime import datetime
 
+import pandas as pd
 import streamlit as st
 import numpy as np
 
@@ -84,7 +85,6 @@ if file_name.endswith('.spe'):
     path_to_spe = os.path.join(path_to_files, file_name)
     spe = SpeWrapper(path_to_spe)
     # radiationにもしておく
-    original_radiation = RawSpectrumData(spe)
     try:
         # おそらくspe ver.3 以上でないとできない。あと設定されていないと取得できない。
         # 失敗した場合はターミナルにログを吐き出してskipされる
@@ -179,13 +179,13 @@ match calibration_select_option:
                     label='Up',
                     options=filter_files[selected_period][selected_OD]['Up'].keys()
                 )
-                selected_up_filter_path = filter_files[selected_period][selected_OD]['Up'] # fullpathにしておく
+                selected_up_filter_path = filter_files[selected_period][selected_OD]['Up'][selected_up_filter_file] # fullpathにしておく
             with down_col:
                 selected_down_filter_file = st.selectbox(
                     label='Down',
                     options=filter_files[selected_period][selected_OD]['Down'].keys()
                 )
-                selected_down_filter_path = filter_files[selected_period][selected_OD]['Down'] # fullpathにしておく
+                selected_down_filter_path = filter_files[selected_period][selected_OD]['Down'][selected_down_filter_file] # fullpathにしておく
         except Exception as e:
             st.write(e.__repr__())
             st.stop()
@@ -239,6 +239,11 @@ selected_calib_files = {
 }
 st.write(selected_calib_files)
 
+st.markdown('') # 表示上のスペース確保
+st.markdown('##### 保存先の設定')
+save_path = st.text_input(label='保存フォルダまでのfull path', value=setting.setting_json['save_path'])
+if st.button('保存先を更新'):
+    setting.update_save_spe_path(save_path)
 
 st.divider()
 output_file_option = st.radio(
@@ -248,17 +253,35 @@ output_file_option = st.radio(
 
 match output_file_option:
     case '`.hdf5`':
-        st.button('`.hdf5`に書き出し')
-        # 必要なオブジェクト化
+        if st.button('`.hdf5`に書き出し'):
+            st.write('書き込み開始')
+            # 保存するhdf5ファイル名
+            saved_hdf5_name = spe.file_name + '_calib.hdf'
 
-        # 書き出し処理
-        CalibrateSpectraWriter.output_to_hdf5(
-            # original_radiation=,
-            # ref_spectrum=,
-            # up_filter=,
-            # down_filter=,
-            # path_to_hdf5=
-        )
+            # 必要なオブジェクト化
+            original_radiation = RawSpectrumData(spe) # spe -> radiationデータクラスへ
+            lamp_spectrum = pd.read_csv( # ["wavelength", "intensity"]を列に持つpd.DataFrameへ
+                selected_lamp_path,
+                header=None,
+                names=["wavelength", "intensity"]
+            )
+            # up, downは、応答補正値の配列を渡す
+            up_filter_spe = SpeWrapper(filepath=selected_up_filter_path)
+            up_response_arr = up_filter_spe.get_frame_data(frame=0)[0]
+            down_filter_spe = SpeWrapper(filepath=selected_down_filter_path)
+            down_response_arr = down_filter_spe.get_frame_data(frame=0)[0]
+
+            # 書き出し処理
+            path_to_hdf5 = os.path.join(save_path, saved_hdf5_name)
+            st.write(f'{path_to_hdf5} が出力されます。')
+            CalibrateSpectraWriter.output_to_hdf5(
+                original_radiation=original_radiation,
+                lamp_spectrum=lamp_spectrum,
+                up_response=up_response_arr,
+                down_response=down_response_arr,
+                path_to_hdf5=path_to_hdf5
+            )
+            st.write(f'完了: {path_to_hdf5}')
     case '`.spe`':
         st.write('実装されていません（LightFieldでできます）')
         st.stop()
