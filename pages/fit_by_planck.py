@@ -13,16 +13,37 @@ from modules.data_model.raw_spectrum_data import RawSpectrumData
 from modules.radiation_fitter import RadiationFitter
 from modules.figure_maker import FigureMaker
 
-# 共通の設定
-# ページリンクを設定する
-setting_handler.set_common_setting()
+# 共通の設定(このページ内ではページ内リンクを設定する)
+setting_handler.set_common_setting(has_link_in_page=True)
 # まず設定インスタンスを作成しておく。これを通してフォルダパスを読み込んだり保存したりする
 setting = setting_handler.Setting()
 
 st.title("🌈 Fit by Planck")
 st.divider()
 
+# 調査するファイルを選択
+display_handler.display_title_with_link(
+    title="1. ファイル選択",
+    link_title="1. ファイル選択",
+    tag="select_file"
+)
 st.markdown('') # 表示上のスペース確保
+st.markdown('##### 校正されたスペクトルを選択')
+# 'read_calib_path'に保存する
+# 'save_calib_path'をチェックボックスで参照できるようにして、自分で使う分にはデフォルトでチェックを入れておく
+# とりあえず.hdfだけ表示するようにする
+
+# 元のspeと組み合わせてしきい値を決めたい場合
+# if 参照するかどうかをcheckbox, defaultでtrue
+st.markdown('') # 表示上のスペース確保
+st.markdown('##### 参照用の露光データを選択')
+
+# fitting情報を設定
+display_handler.display_title_with_link(
+    title="2. 計算設定",
+    link_title="2. 計算設定",
+    tag="adjust_setting"
+)
 # 波長配列を取得しておく
 st.stop()
 # wavelength_arr = original_radiation.get_wavelength_arr()
@@ -54,3 +75,9 @@ with wl_col_2:
 st.markdown('') # 表示上のスペース確保
 st.markdown('##### 計算するpositionをしきい値によって決定')
 
+# fitting実行
+display_handler.display_title_with_link(
+    title="3. 計算を実行",
+    link_title="3. 計算を実行",
+    tag="start_fitting"
+)

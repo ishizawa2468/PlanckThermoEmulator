@@ -1,3 +1,5 @@
+import json
+
 import h5py
 import numpy as np
 import pandas as pd
@@ -21,6 +23,7 @@ class CalibrateSpectraWriter():
         # hdfファイルを生成し、書き込み先のpathを作成
         HDF5Writer(path_to_hdf5) # ファイルが存在しなければ作成し、あればそれを読み込む
         path_to_calibrated_spectra = 'entry/calibrated_spectra'
+        path_to_wavelength_arr = 'entry/wavelength_arr'
 
         # frame数やpixel数などを取得
         shape_data = original_radiation.get_data_shape()
@@ -28,10 +31,11 @@ class CalibrateSpectraWriter():
         position_pixel_num = shape_data['position_pixel_num']
         center_pixel = shape_data['center_pixel'] # upとdownの境目
         wavelength_pixel_num = shape_data['wavelength_pixel_num']
+        wavelength_arr = original_radiation.get_wavelength_arr()
 
         # NumPy の補間関数を使用して、ランプデータのデータ点の波長を揃える
         lamp_intensity_interpolated = np.interp(
-            original_radiation.get_wavelength_arr(),
+            wavelength_arr,
             lamp_spectrum['wavelength'],
             lamp_spectrum['intensity']
         )
@@ -49,6 +53,10 @@ class CalibrateSpectraWriter():
 
         # 校正して書き込み
         with h5py.File(path_to_hdf5, 'w') as f:
+            # 波長データ
+            f.create_dataset(path_to_wavelength_arr, data=wavelength_arr)
+
+            # imageデータ
             calib_dataset = f.create_dataset(path_to_calibrated_spectra, shape=(frame_num, position_pixel_num, wavelength_pixel_num))
             for frame in tqdm(range(frame_num)):
                 calibrated_image = original_radiation.get_frame_data(frame=frame) * calibration_image
