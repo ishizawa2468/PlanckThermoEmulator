@@ -1,5 +1,5 @@
 {
-  "calib_path": "/Volumes/T7 Touch/T_calculation/calibs",
-  "read_path": "/Volumes/T7 Touch/T_calculation/radiation",
-  "save_path": "/Volumes/T7 Touch/T_calculation/calibrated"
+  "calib_setting_path": "/Volumes/T7 Touch/T_calculation/calibs",
+  "read_radiation_path": "/Volumes/T7 Touch/T_calculation/radiation",
+  "save_calib_path": "/Volumes/T7 Touch/T_calculation/calibrated"
 }

@@ -42,16 +42,16 @@ st.markdown(
     - オリジナルのファイルは読み込むのみで変更されません。
     """
 )
-read_path = st.text_input(label='オリジナルの`.spe`があるフォルダまでのfull path', value=setting.setting_json['read_path'])
+read_radiation_path = st.text_input(label='オリジナルの`.spe`があるフォルダまでのfull path', value=setting.setting_json['read_radiation_path'])
 if st.button('読み込み先を更新'):
-    setting.update_read_spe_path(read_path)
+    setting.update_read_spe_path(read_radiation_path)
 
 st.divider()
 st.markdown('') # 表示上のスペース確保
 st.markdown('##### ファイルを選択')
 setting = setting_handler.Setting() # オブジェクトを作り直して読み込み直す
 
-path_to_files = setting.setting_json['read_path'] # 別ページで設定した読み込みpathを取得
+path_to_files = setting.setting_json['read_radiation_path'] # 別ページで設定した読み込みpathを取得
 # ファイルが得られるpathかどうか確認
 try:
     files = os.listdir(path_to_files)
@@ -112,12 +112,12 @@ display_handler.display_title_with_link(
 
 st.markdown('') # 表示上のスペース確保
 st.markdown('##### 校正データ読み込みフォルダを設定')
-calib_path = st.text_input(label='校正データフォルダまでのfull path', value=setting.setting_json['calib_path'])
+calib_setting_path = st.text_input(label='校正データフォルダまでのfull path', value=setting.setting_json['calib_setting_path'])
 if st.button('データ読み込み先を更新 '):
-    setting.update_calib_spe_path(calib_path)
+    setting.update_calib_spe_path(calib_setting_path)
 
 setting = setting_handler.Setting() # オブジェクトを作り直して読み込み直す
-path_to_calib = setting.setting_json['calib_path']
+path_to_calib = setting.setting_json['calib_setting_path']
 
 # 校正用ファイルを取得する
 lamp_files = {} # key=filename, value=fullpath
@@ -241,9 +241,9 @@ st.write(selected_calib_files)
 
 st.markdown('') # 表示上のスペース確保
 st.markdown('##### 保存先の設定')
-save_path = st.text_input(label='保存フォルダまでのfull path', value=setting.setting_json['save_path'])
+save_calib_path = st.text_input(label='保存フォルダまでのfull path', value=setting.setting_json['save_calib_path'])
 if st.button('保存先を更新'):
-    setting.update_save_spe_path(save_path)
+    setting.update_save_spe_path(save_calib_path)
 
 st.divider()
 output_file_option = st.radio(
@@ -271,7 +271,7 @@ match output_file_option:
             down_filter_spe = SpeWrapper(filepath=selected_down_filter_path)
             down_response_arr = down_filter_spe.get_frame_data(frame=0)[0]
 
-            path_to_hdf5 = os.path.join(save_path, saved_hdf5_name)
+            path_to_hdf5 = os.path.join(save_calib_path, saved_hdf5_name)
             st.write(f'{path_to_hdf5} が出力されます。')
             # FIXME: ログはクラスにしてまとめる
             # ログ
