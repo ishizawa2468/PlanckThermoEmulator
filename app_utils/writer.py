@@ -55,3 +55,8 @@ class CalibrateSpectraWriter():
                 calib_dataset[frame, :, :] = calibrated_image
 
         print('log: Finished writing calibrated spectra to hdf5')
+
+class TemperatureDistributionWriter():
+    @staticmethod
+    def output_to_hdf5():
+        pass

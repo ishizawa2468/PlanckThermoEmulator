@@ -271,9 +271,27 @@ match output_file_option:
             down_filter_spe = SpeWrapper(filepath=selected_down_filter_path)
             down_response_arr = down_filter_spe.get_frame_data(frame=0)[0]
 
-            # 書き出し処理
             path_to_hdf5 = os.path.join(save_path, saved_hdf5_name)
             st.write(f'{path_to_hdf5} が出力されます。')
+            # FIXME: ログはクラスにしてまとめる
+            # ログ
+            if not os.path.isdir('log'):
+                os.mkdir('log')
+            if not os.path.exists('log/calibration_log.txt'):
+                with open('log/calibration_log.txt', 'w') as f:
+                    pass
+            with open('log/calibration_log.txt', 'a') as f:
+                f.write(
+                    str(datetime.now())
+                    + f"\n\tfrom {spe.filepath}"
+                    + f"\n\t  to {path_to_hdf5}"
+                    + f"\n\twith {selected_lamp_path}"
+                    + f"\n\t     {selected_up_filter_path}"
+                    + f"\n\t     {selected_down_filter_path}"
+                    + "\n"
+                )
+
+            # 書き出し処理
             CalibrateSpectraWriter.output_to_hdf5(
                 original_radiation=original_radiation,
                 lamp_spectrum=lamp_spectrum,
