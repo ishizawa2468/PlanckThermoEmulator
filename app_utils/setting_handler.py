@@ -50,11 +50,20 @@ class Setting:
             json.dump(setting_json, f, ensure_ascii=False)
             print(f"{self.PATH_TO_JSON} の {key} に {value} が追加されました。")
 
-    def update_read_spe_path(self, read_path):
-        self._update_setting(key='read_path', value=read_path)
+    def update_read_radiation_path(self, read_path):
+        self._update_setting(key='read_radiation_path', value=read_path)
 
-    def update_calib_spe_path(self, calib_path):
-        self._update_setting(key='calib_path', value=calib_path)
+    def update_calib_setting_path(self, calib_path):
+        self._update_setting(key='calib_setting_path', value=calib_path)
 
-    def update_save_spe_path(self, save_path):
-        self._update_setting(key='save_path', value=save_path)
+    def update_save_calibrated_path(self, save_path):
+        self._update_setting(key='save_calibrated_path', value=save_path)
+
+    def update_read_calibrated_path(self, save_path):
+        self._update_setting(key='read_calibrated_path', value=save_path)
+
+    def update_save_fit_dist_path(self, save_path):
+        self._update_setting(key='save_fit_dist_path', value=save_path)
+
+    def update_save_2color_dist_path(self, save_path):
+        self._update_setting(key='save_2color_dist_path', value=save_path)

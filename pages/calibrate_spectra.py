@@ -37,9 +37,12 @@ st.markdown(
     - オリジナルのファイルは読み込むのみで変更されません。
     """
 )
-read_radiation_path = st.text_input(label='オリジナルの`.spe`があるフォルダまでのfull path', value=setting.setting_json['read_radiation_path'])
+read_radiation_path = st.text_input(
+    label='オリジナルの`.spe`があるフォルダまでのfull path',
+    value=setting.setting_json['read_radiation_path']
+)
 if st.button('読み込み先を更新'):
-    setting.update_read_spe_path(read_radiation_path)
+    setting.update_read_radiation_path(read_radiation_path)
 
 st.divider()
 st.markdown('') # 表示上のスペース確保
@@ -109,7 +112,7 @@ st.markdown('') # 表示上のスペース確保
 st.markdown('##### 校正データ読み込みフォルダを設定')
 calib_setting_path = st.text_input(label='校正データフォルダまでのfull path', value=setting.setting_json['calib_setting_path'])
 if st.button('データ読み込み先を更新 '):
-    setting.update_calib_spe_path(calib_setting_path)
+    setting.update_calib_setting_path(calib_setting_path)
 
 setting = setting_handler.Setting() # オブジェクトを作り直して読み込み直す
 path_to_calib = setting.setting_json['calib_setting_path']
@@ -239,7 +242,7 @@ st.markdown('') # 表示上のスペース確保
 st.markdown('##### 保存先の設定')
 save_calib_path = st.text_input(label='保存フォルダまでのfull path', value=setting.setting_json['save_calib_path'])
 if st.button('保存先を更新'):
-    setting.update_save_spe_path(save_calib_path)
+    setting.update_save_calibrated_path(save_calib_path)
 
 st.divider()
 output_file_option = st.radio(

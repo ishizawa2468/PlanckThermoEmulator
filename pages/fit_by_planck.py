@@ -30,13 +30,30 @@ display_handler.display_title_with_link(
 st.markdown('') # 表示上のスペース確保
 st.markdown('##### 校正されたスペクトルを選択')
 # 'read_calib_path'に保存する
+read_calib_path = st.text_input(
+    label='校正されたスペクトルデータがあるフォルダまでのfull path',
+    value=setting.setting_json['read_calib_path']
+)
+if st.button('読み込み先を更新'):
+    setting.update_read_calibrated_path(read_calib_path)
+    setting = setting_handler.Setting() # オブジェクトを作り直して読み込み直す
+
+# 校正されたスペクトルファイル選択
+calibrated_spectrum = RawSpectrumData(read_calib_path)
+
+
 # 'save_calib_path'をチェックボックスで参照できるようにして、自分で使う分にはデフォルトでチェックを入れておく
+# FIXME: デフォルトでTrueにしているが、デフォルトでFalseにできるようにしておく。set_folder.py → setting_page.pyにして、そこに書く
+if st.checkbox(label='Calibrated Spectraで保存されたフォルダを参照する', value=True):
+    pass
+
 # とりあえず.hdfだけ表示するようにする
 
 # 元のspeと組み合わせてしきい値を決めたい場合
-# if 参照するかどうかをcheckbox, defaultでtrue
-st.markdown('') # 表示上のスペース確保
-st.markdown('##### 参照用の露光データを選択')
+# FIXME: デフォルトでTrueにしているが、デフォルトでFalseにできるようにしておく。set_folder.py → setting_page.pyにして、そこに書く
+if st.checkbox(label='計算箇所を露光データをもとに選択する', value=True):
+    st.markdown('')  # 表示上のスペース確保
+    st.markdown('##### 参照用の露光データを選択')
 
 # fitting情報を設定
 display_handler.display_title_with_link(

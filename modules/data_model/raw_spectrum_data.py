@@ -43,7 +43,7 @@ class RawSpectrumData:
         :exception ValueError: 未実装のファイル形式の場合
         """
         # SPEファイルの場合
-        if file_data.__class__ == SpeWrapper:
+        if file_data.__class__ == SpeWrapper: # file_dataでなくfile_pathをもらって、拡張子で判断する
             self.file_extension = ".spe"
             self.file_name = file_data.file_name
             self.spe = file_data
