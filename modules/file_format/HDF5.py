@@ -173,6 +173,9 @@ class HDF5Reader(HDF5):
 
 
 class HDFDataFetcher:
+    """
+    data_pathを備えさせることで、そのデータを簡単に呼び出せるようにする
+    """
     def __init__(self, file_path: str, data_path: str = None):
         """
         file_path: HDF5ファイルのパス

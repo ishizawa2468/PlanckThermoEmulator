@@ -8,7 +8,7 @@ import numpy as np
 
 from app_utils import setting_handler
 from modules.file_format.spe_wrapper import SpeWrapper
-from modules.data_model.raw_spectrum_data import RawSpectrumData
+from modules.data_model.spectrum_data import SpectrumData
 from modules.radiation_fitter import RadiationFitter
 from modules.figure_maker import FigureMaker
 
@@ -51,7 +51,7 @@ if file_name.endswith('.spe'):
     path_to_spe = os.path.join(path_to_files, file_name)
     spe = SpeWrapper(path_to_spe)
     # radiationにもしておく
-    original_radiation = RawSpectrumData(spe)
+    original_radiation = SpectrumData(path_to_spe)
     try:
         # おそらくspe ver.3 以上でないとできない。あと設定されていないと取得できない。
         spe.get_params_from_xml()

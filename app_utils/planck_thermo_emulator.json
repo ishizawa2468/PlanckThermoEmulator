@@ -1,8 +1,1 @@
-{
-  "calib_setting_path": "/Volumes/T7 Touch/T_calculation/calibs",
-  "read_radiation_path": "/Volumes/T7 Touch/T_calculation/radiation",
-  "save_calibrated_path": "/Volumes/T7 Touch/T_calculation/calibrated",
-  "read_calibrated_path": "",
-  "save_fit_dist_path": "",
-  "save_2color_dist_path": ""
-}
+{"calib_setting_path": "/Volumes/T7 Touch/T_calculation/calibs", "read_calibrated_path": "/Volumes/T7 Touch/T_calculation/calibrated/OIbDia08", "read_radiation_path": "/Volumes/T7 Touch/T_calculation/rotated_radiation/OIbDia08", "save_2color_dist_path": "", "save_calibrated_path": "/Volumes/T7 Touch/T_calculation/calibrated", "save_fit_dist_path": "/Volumes/T7 Touch/T_calculation/planck_fit_dist"}

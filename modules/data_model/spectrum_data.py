@@ -12,6 +12,7 @@ from tqdm import tqdm
 from scipy.ndimage import rotate
 
 from modules.file_format.spe_wrapper import SpeWrapper
+from modules.file_format.HDF5 import HDF5Reader
 
 class RotateOption(Enum):
     WHOLE = "whole"
@@ -25,7 +26,7 @@ class RotateOption(Enum):
             raise ValueError(f"回転オプションが不正です: {option_str}\n以下で指定してください: {', '.join(o.value for o in cls)}")
 
 
-class RawSpectrumData:
+class SpectrumData:
     """ 元データのファイル形式によって分岐する """
     file_extension: str # ファイル拡張子
     file_name: str # 由来のファイル名
@@ -33,30 +34,38 @@ class RawSpectrumData:
     wavelength_pixel_num: int
     center_pixel: int
 
-    def __init__(self, file_data):
+    def __init__(self, file_path: str):
         """ データファイルをpythonクラスでインスタンス化したものを受け取る。
         主にファイル拡張子によって異なる部分をそれぞれのメソッドで調整する。
         それぞれのメソッドでどんなデータファイルが来たか判断できるようにファイル拡張子を設定する。
 
-        :param file_data:
+        :param file_path:
 
         :exception ValueError: 未実装のファイル形式の場合
         """
         # SPEファイルの場合
-        if file_data.__class__ == SpeWrapper: # file_dataでなくfile_pathをもらって、拡張子で判断する
+        if file_path.endswith('.spe'): # file_dataでなくfile_pathをもらって、拡張子で判断する
             self.file_extension = ".spe"
-            self.file_name = file_data.file_name
-            self.spe = file_data
-            self.get_data_shape()
-        # TODO: HDFファイルの場合
+            self.spe = SpeWrapper(file_path)
+            self.file_name = self.spe.file_name
+        elif file_path.endswith('.hdf'): # FIXME: 本当はHDFクラスの可能な拡張子一通りでひっかけないといけない
+            self.file_extension = ".hdf"
+            self.hdf = HDF5Reader(file_path)
+            self.spectra_fetcher = self.hdf.create_fetcher(query='calibrated_spectra')
+            self.file_name = file_path.split("/")[-1][:-4] # HDF5Readerクラスに実装すべきかもしれない
         # その他の場合: 実装されていないのでエラー
         else:
             raise ValueError("データ形式(拡張子)に対応していません。")
+        # 一様処理
+        self.get_data_shape()
 
+    @functools.cache
     def get_frame_data(self, frame):
         match self.file_extension:
             case ".spe":
                 return self.spe.get_frame_data(frame=frame)
+            case ".hdf":
+                return self.spectra_fetcher.fetch_by_frame(frame=frame)
             case _:
                 raise ValueError("データ形式(拡張子)に対応していません。")
 
@@ -81,12 +90,20 @@ class RawSpectrumData:
                 self.wavelength_pixel_num = wavelength_pixel_num
                 self.center_pixel = center_pixel
 
+                # FIXME: setしているので返さなくていいのでは？
                 return {
                     "frame_num": frame_num,
                     "position_pixel_num": position_pixel_num,
                     "center_pixel": center_pixel,
                     "wavelength_pixel_num": wavelength_pixel_num
                 }
+            case ".hdf":
+                data_shape = self.spectra_fetcher.get_shape()
+                # NOTE: 3次元で、(frame_num, position_pixel, wavelength_pixel)となっていると想定。間違ってるかも
+                self.frame_num = data_shape[0]
+                self.position_pixel_num = data_shape[1]
+                self.wavelength_pixel_num = data_shape[2]
+                self.center_pixel = round(self.wavelength_pixel_num / 2) # 四捨五入でなく、round to evenなので注意
             case _:
                 raise ValueError("データ形式(拡張子)に対応していません。")
 
@@ -99,6 +116,8 @@ class RawSpectrumData:
         match self.file_extension:
             case ".spe":
                 return self.spe.get_wavelengths()[0]
+            case ".hdf":
+                return self.hdf.find_by(query='wavelength_arr')
             case _:
                 raise ValueError("データ形式(拡張子)に対応していません。")
 
@@ -131,6 +150,18 @@ class RawSpectrumData:
                 return up_max_I, down_max_I
             case _:
                 raise ValueError("データ形式(拡張子)に対応していません。")
+
+    @functools.cache
+    def get_max_intensity_2d_arr(self):
+        """
+
+        :return: (frame, position)における最大強度を持つ二次元配列
+        """
+        intensity_arr = np.zeros((self.frame_num, self.position_pixel_num))
+        for frame in range(self.frame_num):
+            image = self.get_frame_data(frame)
+            intensity_arr[frame, :] = image.max(axis=1)
+        return intensity_arr
 
     def get_centers_arr_by_max(self, frame):
         """ frame?全体?のimshowにscatterする中心位置を得る
@@ -181,9 +212,9 @@ class RawSpectrumData:
         # インスタンス化。Speファイルとしてと、輻射データとしてとどちらもしておく
         before_spe = SpeWrapper(before_spe_path)
         before_spe.set_datatype() # オリジナルでデータ型を取得しておく
-        before_radiation = RawSpectrumData(before_spe)
+        before_radiation = SpectrumData(before_spe_path)
         after_spe = SpeWrapper(after_spe_path)
-        after_radiation = RawSpectrumData(after_spe)
+        after_radiation = SpectrumData(after_spe_path)
 
         # このメソッドの想定されているデータが渡されているか確認
         confirm_valid_file_combination(before_radiation, after_radiation)

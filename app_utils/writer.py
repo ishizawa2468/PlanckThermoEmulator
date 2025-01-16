@@ -5,14 +5,14 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
-from modules.data_model.raw_spectrum_data import RawSpectrumData
+from modules.data_model.spectrum_data import SpectrumData
 from modules.file_format.HDF5 import HDF5Writer
 
 
 class CalibrateSpectraWriter():
     @staticmethod
     def output_to_hdf5(
-            original_radiation: RawSpectrumData,
+            original_radiation: SpectrumData,
             lamp_spectrum: pd.DataFrame,
             up_response: np.ndarray,
             down_response: np.ndarray,

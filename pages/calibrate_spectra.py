@@ -9,7 +9,7 @@ from app_utils import display_handler
 from app_utils.file_handler import FileHandler
 from app_utils.writer import CalibrateSpectraWriter
 from modules.file_format.spe_wrapper import SpeWrapper
-from modules.data_model.raw_spectrum_data import RawSpectrumData
+from modules.data_model.spectrum_data import SpectrumData
 
 # 共通の設定(このページ内ではページ内リンクを設定する)
 setting_handler.set_common_setting(has_link_in_page=True)
@@ -240,7 +240,7 @@ st.write(selected_calib_files)
 
 st.markdown('') # 表示上のスペース確保
 st.markdown('##### 保存先の設定')
-save_calib_path = st.text_input(label='保存フォルダまでのfull path', value=setting.setting_json['save_calib_path'])
+save_calib_path = st.text_input(label='保存フォルダまでのfull path', value=setting.setting_json['save_calibrated_path'])
 if st.button('保存先を更新'):
     setting.update_save_calibrated_path(save_calib_path)
 
@@ -258,7 +258,7 @@ match output_file_option:
             saved_hdf5_name = spe.file_name + '_calib.hdf'
 
             # 必要なオブジェクト化
-            original_radiation = RawSpectrumData(spe) # spe -> radiationデータクラスへ
+            original_radiation = SpectrumData(path_to_spe) # spe -> radiationデータクラスへ
             lamp_spectrum = pd.read_csv( # ["wavelength", "intensity"]を列に持つpd.DataFrameへ
                 selected_lamp_path,
                 header=None,
