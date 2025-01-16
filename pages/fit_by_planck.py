@@ -142,8 +142,9 @@ if need_raw_spectrum:
         step=100
     )
     fig, ax = plt.subplots(figsize=(8, 4))
-    max_intensity_arr[max_intensity_arr < calculation_threshold] = np.nan
-    plt.imshow(max_intensity_arr.T, cmap='jet')
+    filterd_intensity = max_intensity_arr.copy()
+    filterd_intensity[max_intensity_arr < calculation_threshold] = np.nan
+    plt.imshow(filterd_intensity.T, cmap='jet')
     plt.colorbar()
     plt.tight_layout()
     plt.xlabel('Time (frame)')
