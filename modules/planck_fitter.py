@@ -15,8 +15,8 @@ class PlanckFitter:
 
     @classmethod
     def fit_by_planck(cls, wavelength_fit, intensity_fit):
-        initial_temperature = 3000  # 初期温度を 3000 K に設定
-        initial_scale = 1e-10       # 初期スケール因子を適当に設定
+        initial_temperature = 5_000  # 初期温度を 5000 K に設定
+        initial_scale = 1e-14       # 初期スケール因子を適当に設定
         params, covariance = curve_fit(cls.planck_function, wavelength_fit, intensity_fit, p0=[initial_temperature, initial_scale])
         # フィッティング結果と標準誤差
         T, scale = params
