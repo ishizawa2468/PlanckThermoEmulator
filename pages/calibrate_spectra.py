@@ -15,7 +15,6 @@ from modules.data_model.spectrum_data import SpectrumData
 setting_handler.set_common_setting(has_link_in_page=True)
 
 st.title("📈 Calibrate Spectra")
-st.divider()
 
 # 調査するファイルを選択
 display_handler.display_title_with_link(
@@ -99,8 +98,6 @@ if file_name.endswith('.spe'):
         print(e)
 else:
     st.stop()
-
-st.divider()
 
 display_handler.display_title_with_link(
     title="2. 校正設定",
@@ -204,7 +201,6 @@ match calibration_select_option:
         st.write('想定外の挙動')
         st.stop()
 
-st.divider()
 display_handler.display_title_with_link(
     title="3. 確認して校正実行",
     link_title="3. 確認して校正実行",
@@ -298,7 +294,7 @@ match output_file_option:
                 down_response=down_response_arr,
                 path_to_hdf5=path_to_hdf5
             )
-            st.write(f'完了: {path_to_hdf5}')
+            st.success(f'完了: `{path_to_hdf5}`')
     case '`.spe`':
         st.write('実装されていません（LightFieldでできます）')
         st.stop()

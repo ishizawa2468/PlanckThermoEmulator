@@ -1,6 +1,5 @@
 import streamlit as st
 
-import os
 import json
 
 # それぞれのページで共通レイアウト・設定を作る
