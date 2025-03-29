@@ -1,256 +1,174 @@
-import sys
-import time
 import os
-from datetime import datetime
-
-import streamlit as st
+import time
+import gc
 import numpy as np
-from matplotlib import pyplot as plt
+import streamlit as st
+import matplotlib.pyplot as plt
 
-from app_utils import setting_handler
-from app_utils import display_handler
+from app_utils import setting_handler, display_handler
 from modules.file_format.HDF5 import HDF5Writer
-from modules.file_format.spe_wrapper import SpeWrapper
 from modules.data_model.spectrum_data import SpectrumData
-from modules.radiation_fitter import RadiationFitter
 from modules.planck_fitter import PlanckFitter
-from modules.figure_maker import FigureMaker
-
-# 共通の設定(このページ内ではページ内リンクを設定する)
-setting_handler.set_common_setting(has_link_in_page=True)
-# まず設定インスタンスを作成しておく。これを通してフォルダパスを読み込んだり保存したりする
-setting = setting_handler.Setting()
-
-st.title("🌈 Fit by Planck")
-
-# 調査するファイルを選択
-display_handler.display_title_with_link(
-    title="1. ファイル選択",
-    link_title="1. ファイル選択",
-    tag="select_file"
-)
-st.markdown('') # 表示上のスペース確保
-st.markdown('##### 校正されたスペクトルを選択')
-# 'read_calib_path'に保存する
-read_calib_path = st.text_input(
-    label='校正されたスペクトルデータがあるフォルダまでのfull path',
-    value=setting.setting_json['read_calibrated_path']
-)
-if st.button('読み込み先を更新'):
-    print("読み込み先を更新")
-    setting.update_read_calibrated_path(read_calib_path)
-
-setting = setting_handler.Setting() # オブジェクトを作り直して読み込み直す
-selected_files = []
-for file in os.listdir(read_calib_path):
-    if file.startswith('.'): # .はじまりは除く
-        pass
-    else:
-        selected_files.append(file)
-
-selected_calib_file = st.selectbox(
-    label='`.hdf`を選択',
-    options=selected_files
-)
-
-# 校正されたスペクトルファイル選択
-calibrated_spectrum_path = os.path.join(read_calib_path, selected_calib_file)
-calibrated_spectrum = SpectrumData(file_path=calibrated_spectrum_path)
-
-# 元のspeと組み合わせてしきい値を決めたい場合
-# FIXME: デフォルトでTrueにしているが、デフォルトでFalseにできるようにしておく。set_folder.py → setting_page.pyにして、そこに書く
-need_raw_spectrum = st.checkbox(label='計算箇所を露光データをもとに選択する', value=True)
-if need_raw_spectrum:
-    st.markdown('')  # 表示上のスペース確保
-    st.markdown('##### 参照用の露光データを選択')
-    if st.checkbox(label='Raw Spectraで保存されたフォルダを参照する', value=True):
-        raw_spectrum_path = os.path.join(setting.setting_json['read_radiation_path'])
-        raw_spectrum_files = []
-        count, default_count = 0, 0
-        for file in os.listdir(raw_spectrum_path):
-            if not file.startswith('.') and file.endswith('.spe'):
-                try:  # ファイル名が14文字未満の場合に例外
-                    if selected_calib_file[:14] in file:
-                        default_count = count
-                except:
-                    pass
-                raw_spectrum_files.append(file)
-                count += 1
-
-        selected_reference_file = st.selectbox(
-            label='Raw Spectra',
-            options=raw_spectrum_files,
-            index=default_count
-        )
-        # インスタンス化して最大強度配列を取得
-        raw_spectrum = SpectrumData(file_path=os.path.join(raw_spectrum_path, selected_reference_file))
-        max_intensity_arr = raw_spectrum.get_max_intensity_2d_arr()
-        # 強度を表示。しきい値を選択できるようにして、計算範囲の表示も行う。
-        # TODO: figure makerへ
-        # まず元強度のプロット
-        fig, ax = plt.subplots(figsize=(8, 4))
-        plt.imshow(max_intensity_arr.T, cmap='jet')
-        plt.colorbar()
-        plt.tight_layout()
-        plt.xlabel('Time (frame)')
-        plt.ylabel('Position (pixel)')
-        st.pyplot(fig)
+from log_util import logger
 
 
-# fitting情報を設定
-display_handler.display_title_with_link(
-    title="2. 計算設定",
-    link_title="2. 計算設定",
-    tag="adjust_setting"
-)
+def configure_app():
+    # 共通設定とタイトルの表示
+    setting_handler.set_common_setting(has_link_in_page=True)
+    st.title("🌈 Fit by Planck")
+    logger.info("Fit by Planck 画面を開始")
 
-# 波長配列を取得しておく
-wavelength_arr = calibrated_spectrum.get_wavelength_arr()
-min_wavelength = min(wavelength_arr) # 端の値を取得
-max_wavelength = max(wavelength_arr)
-int_min_wavelength = int(min_wavelength) # 整数としても持っておく
-int_max_wavelength = int(max_wavelength)
-# 波長範囲を設定 / 範囲波長を表示
-st.markdown(f'##### 採用する波長領域を設定 / {round(min_wavelength, 1)} - {round(max_wavelength, 1)} nm')
-# 設定するための入力フィールド
-wl_col_1, wl_col_2 = st.columns(2)
-with wl_col_1:
-    lower_wavelength = st.number_input(
-        label=f'下限 ({int_min_wavelength} nm 以上)',
-        min_value=int_min_wavelength,
-        max_value=int_max_wavelength-1,
-        value=600 if ((600>=int_min_wavelength) and (600<=int_max_wavelength)) else int_min_wavelength, # 読みづらくてすみませんが三項演算子です
-        step=1
-    )
-with wl_col_2:
-    upper_wavelength = st.number_input(
-        label=f'上限 ({int_max_wavelength} nm 以下)',
-        min_value=lower_wavelength+1,
-        max_value=int_max_wavelength,
-        value=800 if 800>=int_min_wavelength and 800<=int_max_wavelength else int_max_wavelength,
-        step=1
-    )
+def select_calibrated_file():
+    # 校正済みスペクトルファイルの選択セクション
+    display_handler.display_title_with_link("1. ファイル選択", "1. ファイル選択", "select_file")
+    setting = setting_handler.Setting()
+    read_calib_path = st.text_input("校正されたスペクトルデータのパス", value=setting.setting_json['read_calibrated_path'])
+    if st.button("読み込み先を更新"):
+        setting.update_read_calibrated_path(read_calib_path)
+        logger.info(f"読み込み先を更新: {read_calib_path}")
 
-if need_raw_spectrum:
-    st.markdown('') # 表示上のスペース確保
-    st.markdown('##### 計算するpositionをしきい値によって決定')
-    calculation_threshold = st.slider(
-        " (これ以上の値があるframeを0にする)",
-        min_value=0,
-        max_value=round(max_intensity_arr.max()/10),
-        value=1000,
-        step=100
-    )
-    fig, ax = plt.subplots(figsize=(8, 4))
-    filterd_intensity = max_intensity_arr.copy()
-    filterd_intensity[max_intensity_arr < calculation_threshold] = np.nan
-    plt.imshow(filterd_intensity.T, cmap='jet')
-    plt.colorbar()
-    plt.tight_layout()
-    plt.xlabel('Time (frame)')
-    plt.ylabel('Position (pixel)')
-    st.pyplot(fig)
+    files = [f for f in os.listdir(read_calib_path) if not f.startswith('.')]
+    selected_file = st.selectbox("`.hdf`を選択", options=files)
+    return os.path.join(read_calib_path, selected_file), selected_file
 
-# fitting
-display_handler.display_title_with_link(
-    title="3. 計算を実行",
-    link_title="3. 計算を実行",
-    tag="start_fitting"
-)
+def load_reference_data(setting, selected_calib_file):
+    # Raw露光データをもとにフィッティング位置を選ぶオプション
+    need_raw = st.checkbox("計算箇所を露光データをもとに選択する", value=True)
+    max_intensity_arr = None
+    if need_raw:
+        st.markdown("##### 参照用の露光データを選択")
+        if st.checkbox("Raw Spectraで保存されたフォルダを参照する", value=True):
+            raw_path = setting.setting_json['read_radiation_path']
+            raw_files = [f for f in os.listdir(raw_path) if f.endswith('.spe') and not f.startswith('.')]
+            index = next((i for i, f in enumerate(raw_files) if selected_calib_file[:14] in f), 0)
+            selected_raw = st.selectbox("Raw Spectra", options=raw_files, index=index)
+            raw_spectrum = SpectrumData(file_path=os.path.join(raw_path, selected_raw))
+            st.write('ファイル読み込み')
+            max_intensity_arr = raw_spectrum.get_max_intensity_2d_arr()
+            # 最大強度マップを描画
+            fig, ax = plt.subplots(figsize=(8, 4))
+            img = ax.imshow(max_intensity_arr.T, cmap='jet')
+            plt.colorbar(img, ax=ax)
+            st.pyplot(fig)
+    return need_raw, max_intensity_arr
 
-# 保存先ファイルを選択
-save_fit_dist_path = st.text_input(
-    label='温度を保存するフォルダまでのfull path',
-    value=setting.setting_json['save_fit_dist_path']
-)
-if st.button('保存先を更新'):
-    print("保存先を更新")
-    setting.update_save_fit_dist_path(save_fit_dist_path)
-    setting = setting_handler.Setting() # オブジェクトを作り直して読み込み直す
+def wavelength_range_ui(wavelength_arr):
+    # 波長範囲の設定UI
+    display_handler.display_title_with_link("2. 採用する波長領域を設定", "2. 採用する波長領域を設定", "set_wavelength_range")
+    min_wl, max_wl = int(min(wavelength_arr)), int(max(wavelength_arr))
+    wl1, wl2 = st.columns(2)
+    with wl1:
+        lower = st.number_input("下限 (nm)", min_value=min_wl, max_value=max_wl-1, value=600 if 600 in range(min_wl, max_wl) else min_wl)
+    with wl2:
+        upper = st.number_input("上限 (nm)", min_value=lower+1, max_value=max_wl, value=800 if 800 in range(min_wl, max_wl) else max_wl)
+    return lower, upper
 
-st.markdown('##### 以下のファイルが生成されます。')
-saved_file_name = selected_calib_file[:-9] + 'dist.hdf' # calib.hdfを取り除いて、dist.hdfにする
-st.write(f'`{saved_file_name}`')
+def filter_positions_by_threshold(max_intensity_arr):
+    # 強度しきい値に基づいて対象位置を絞り込む
+    st.markdown("##### 計算するpositionをしきい値によって決定")
+    threshold = st.slider("Intensity Threshold", 0, round(max_intensity_arr.max()/10), 1000, step=100)
+    return threshold
 
-if st.button("計算開始", type='primary'):
-    st.markdown("### 保存先ファイルを作成")
-    writer = HDF5Writer(os.path.join(save_fit_dist_path, saved_file_name)) # ファイルを作成
-
+def run_fitting(calibrated_spectrum, mask, lower, upper, need_raw, max_intensity_arr, save_path, output_filename):
+    # プランクフィッティングの実行
+    writer = HDF5Writer(os.path.join(save_path, output_filename))
     st.markdown("### フィッティング中...")
-    start_time = time.time() # 時間測っておく
-    progress_bar = st.progress(0)
+    start = time.time()
+    progress = st.progress(0)
 
-    # fittingする領域を絞る
-    if need_raw_spectrum:
-        # 計算対象の (frame, position) ペアを取得
-        target_indices = np.argwhere(max_intensity_arr >= calculation_threshold)
+    # 対象位置の抽出
+    if need_raw:
+        target_indices = np.argwhere(max_intensity_arr >= mask)
     else:
-        target_indices = np.array([(i, j) for i in range(max_intensity_arr.shape[0]) for j in range(max_intensity_arr.shape[1])])
+        target_indices = np.array([(i, j) for i in range(calibrated_spectrum.frame_num) for j in range(calibrated_spectrum.position_pixel_num)])
 
-    # フィッティング結果を格納するリスト
-    T_result = np.zeros((calibrated_spectrum.frame_num, calibrated_spectrum.position_pixel_num))
-    scale_result = np.zeros((calibrated_spectrum.frame_num, calibrated_spectrum.position_pixel_num))
-    T_error_result = np.zeros((calibrated_spectrum.frame_num, calibrated_spectrum.position_pixel_num))
-    scale_error_result = np.zeros((calibrated_spectrum.frame_num, calibrated_spectrum.position_pixel_num))
+    # 結果格納用配列の初期化
+    T = np.zeros((calibrated_spectrum.frame_num, calibrated_spectrum.position_pixel_num))
+    scale = np.zeros_like(T)
+    T_err = np.zeros_like(T)
+    scale_err = np.zeros_like(T)
 
-    # 波長範囲を示すmask配列を作成
-    mask = (wavelength_arr >= lower_wavelength) & (wavelength_arr <= upper_wavelength) # boolean配列が作成される
-    wavelength_fit = wavelength_arr[mask] # boolean配列を入れてあげると、trueのところだけ抽出できる
+    # 波長フィルタリング
+    wl_arr = calibrated_spectrum.get_wavelength_arr()
+    fit_mask = (wl_arr >= lower) & (wl_arr <= upper)
+    fit_wl = wl_arr[fit_mask]
 
-    # 全ペアに対してプランクフィッティングを実行
-    total_points = len(target_indices)
-    for idx, (frame, position) in enumerate(target_indices):
+    for idx, (frame, pos) in enumerate(target_indices):
         try:
-            # 対応するスペクトルデータを取得
-            intensity_spectrum = calibrated_spectrum.get_frame_data(frame=frame)[position]
-            intensity_fit = intensity_spectrum[mask]
-
-            # フィッティングを実行
-            fit_result = PlanckFitter.fit_by_planck(wavelength_fit, intensity_fit)
-
-            # 結果を格納
-            T_result[frame, position] = fit_result['T']
-            scale_result[frame, position] = fit_result['scale']
-            T_error_result[frame, position] = fit_result['T_error']
-            scale_error_result[frame, position] = fit_result['scale_error']
+            intensity = calibrated_spectrum.get_frame_data(frame=frame)[pos][fit_mask]
+            result = PlanckFitter.fit_by_planck(fit_wl, intensity)
+            T[frame, pos] = result['T']
+            scale[frame, pos] = result['scale']
+            T_err[frame, pos] = result['T_error']
+            scale_err[frame, pos] = result['scale_error']
         except Exception as e:
-            print(f"フィッティング失敗: frame={frame}, position={position}, エラー: {e}")
+            logger.warning(f"Fit failed: frame={frame}, pos={pos}, error={e}")
+        progress.progress((idx + 1) / len(target_indices))
 
-        # プログレスバーを更新
-        progress_bar.progress((idx + 1) / total_points)
+    logger.info(f"Fitting completed in {round(time.time()-start, 2)} seconds")
+    return T, scale, T_err, scale_err
 
-    st.markdown("### フィッティング完了")
-    end_time = time.time()
-    print(f' -> かかった時間: {round(end_time-start_time, 2)} seconds') # ログに出す
+def save_results(writer: HDF5Writer, result_dict: dict):
+    # フィッティング結果をHDF5に保存する
+    for path, data in result_dict.items():
+        if data is not None:
+            writer.write(data_path=path, data=data)
 
-    st.markdown("### 書き込み開始")
-    result_list = [
-        T_result,
-        scale_result,
-        T_error_result,
-        scale_error_result,
-        max_intensity_arr if need_raw_spectrum else None
-    ]
-    save_data_path = {
-        'T': 'entry/value/T',
-        'scale': 'entry/value/scale',
-        'T_error': 'entry/error/T',
-        'scale_error': 'entry/error/scale',
-        '2d_max_intensity': 'entry/spe/2d_max_intensity',
-    }
-    for i, key in enumerate(save_data_path.keys()):
-        if result_list[i] is not None:
-            writer.write(
-                data_path=save_data_path[key],
-                data=result_list[i]
-            )
-
-    st.success("保存完了")
-
-    # 結果を表示
-    st.markdown("### フィッティング結果")
-
+def show_results(T_result):
+    # T 分布の可視化
     fig, ax = plt.subplots(figsize=(8, 4))
-    plt.imshow(T_result.T, cmap='jet')
-    plt.colorbar()
+    img = ax.imshow(T_result.T, cmap='jet')
+    plt.colorbar(img, ax=ax)
     st.pyplot(fig)
+
+# --------------------- Main 処理フロー ---------------------
+configure_app()
+path, filename = select_calibrated_file()
+calibrated = SpectrumData(file_path=path)
+setting = setting_handler.Setting()
+need_raw, max_intensity = load_reference_data(setting, filename)
+
+wavelengths = calibrated.get_wavelength_arr()
+lower_wl, upper_wl = wavelength_range_ui(wavelengths)
+
+threshold = None
+if need_raw:
+    threshold = filter_positions_by_threshold(max_intensity)
+
+# 実行セクション（保存先とボタン）
+display_handler.display_title_with_link("3. 計算を実行", "3. 計算を実行", "start_fitting")
+save_path = st.text_input("保存先フォルダ", value=setting_handler.Setting().setting_json['save_fit_dist_path'])
+# ディレクトリ存在チェック
+if st.button("保存先を更新"):
+    if os.path.isdir(save_path):
+        setting_handler.Setting().update_save_fit_dist_path(save_path)
+        st.success("保存先を更新しました。")
+        logger.info(f"保存先を更新: {save_path}")
+    else:
+        st.error("指定されたパスは存在しないか、フォルダではありません。")
+        logger.warning(f"無効な保存先が指定されました: {save_path}")
+output_file = filename.replace("_calib.hdf", "_dist.hdf")
+st.write(f"出力ファイル: `{output_file}`")
+
+# フィッティング処理の実行と保存
+if st.button("計算開始", type='primary'):
+    # 保存先パスがフォルダかチェック
+    if os.path.isdir(save_path):
+        T, scale, T_err, scale_err = run_fitting(calibrated, threshold, lower_wl, upper_wl, need_raw, max_intensity,
+                                                 save_path, output_file)
+        dist_path = os.path.join(save_path, output_file)
+        writer = HDF5Writer(dist_path)
+        save_results(writer, {
+            "entry/value/T": T,
+            "entry/value/scale": scale,
+            "entry/error/T": T_err,
+            "entry/error/scale": scale_err,
+            "entry/spe/2d_max_intensity": max_intensity if need_raw else None
+        })
+        st.success(f"保存完了: `{dist_path}`")
+        show_results(T)
+        gc.collect()
+    else:
+        st.error("指定されたパスは存在しないか、ディレクトリではありません。")
+        logger.warning(f"無効な保存先が指定されました: {save_path}")
+        st.stop()

@@ -1,8 +1,6 @@
-import sys
 import time
 import os
-from datetime import datetime
-
+import gc
 import streamlit as st
 import numpy as np
 from matplotlib import pyplot as plt
@@ -239,8 +237,11 @@ display_handler.display_title_with_link(
     tag="batch_fitting"
 )
 st.info('(Frame, Position)のうち、どちらかを配列して計算します。比較をプロットします。', icon='✅')
+st.warning('処理は重たいです')
 
-if st.checkbox(label='一括で計算を行う', value=True):
+gc.collect()
+
+if st.checkbox(label='一括で計算を行う', value=False):
     extend_option = st.radio(label='可変にする方を選択(↑の設定から伸ばす)', options=['frame', 'position'])
 
     if extend_option == 'frame':
@@ -351,3 +352,5 @@ if st.checkbox(label='一括で計算を行う', value=True):
         ax.legend()
         ax.grid(True)
         st.pyplot(fig)
+
+        gc.collect()

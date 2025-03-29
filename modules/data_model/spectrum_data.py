@@ -5,14 +5,13 @@
 """
 import functools
 from enum import Enum
-
 import numpy as np
-from matplotlib import pyplot as plt
-from tqdm import tqdm
 from scipy.ndimage import rotate
+import streamlit as st
 
 from modules.file_format.spe_wrapper import SpeWrapper
 from modules.file_format.HDF5 import HDF5Reader
+from log_util import logger
 
 class RotateOption(Enum):
     WHOLE = "whole"
@@ -43,21 +42,26 @@ class SpectrumData:
 
         :exception ValueError: 未実装のファイル形式の場合
         """
-        # SPEファイルの場合
+        logger.info('インスタンス化の開始')
+
         if file_path.endswith('.spe'): # file_dataでなくfile_pathをもらって、拡張子で判断する
+            logger.debug('.speファイル分岐')
             self.file_extension = ".spe"
             self.spe = SpeWrapper(file_path)
             self.file_name = self.spe.file_name
-        elif file_path.endswith('.hdf'): # FIXME: 本当はHDFクラスの可能な拡張子一通りでひっかけないといけない
+        elif file_path.endswith('.hdf'): # FIXME: 本当はHDFクラスの可能な拡張子一通りでひっかけないといけない -> h5pyのis_hdfみたいなやつ使う
+            logger.debug('hdfファイル分岐')
             self.file_extension = ".hdf"
             self.hdf = HDF5Reader(file_path)
             self.spectra_fetcher = self.hdf.create_fetcher(query='calibrated_spectra')
-            self.file_name = file_path.split("/")[-1][:-4] # HDF5Readerクラスに実装すべきかもしれない
+            self.file_name = file_path.split("/")[-1][:-4] # HDF5Readerクラスに実装すべきかもしれない # FIXME windows対応
         # その他の場合: 実装されていないのでエラー
         else:
             raise ValueError("データ形式(拡張子)に対応していません。")
+
         # 一様処理
         self.get_data_shape()
+        logger.info('インスタンス化の終了')
 
     @functools.cache
     def get_frame_data(self, frame):
@@ -75,6 +79,7 @@ class SpectrumData:
 
         :return dict of key=str, value=int / (frame_num, position_pixel_num, center_pixel, wavelength_pixel_num):
         """
+        logger.debug('shapeの取得開始')
         match self.file_extension:
             case ".spe":
                 frame_num = self.spe.num_frames
@@ -157,10 +162,13 @@ class SpectrumData:
 
         :return: (frame, position)における最大強度を持つ二次元配列
         """
+        logger.debug("Entered get_max_intensity_2d_arr")
         intensity_arr = np.zeros((self.frame_num, self.position_pixel_num))
+        progress = st.progress(0.0) # for debug
         for frame in range(self.frame_num):
             image = self.get_frame_data(frame)
             intensity_arr[frame, :] = image.max(axis=1)
+            progress.progress(frame / self.frame_num) # for debug
         return intensity_arr
 
     def get_centers_arr_by_max(self, frame):
