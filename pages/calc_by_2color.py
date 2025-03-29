@@ -95,6 +95,7 @@ if need_raw_spectrum:
         plt.xlabel('Time (frame)')
         plt.ylabel('Position (pixel)')
         st.pyplot(fig)
+        plt.close(fig)
 
 
 # fitting情報を設定
@@ -173,7 +174,7 @@ if st.checkbox(label='スペクトルとPlanck fitを表示', value=True):
     ax.set_ylabel('Intensity (a.u.)')
     ax.set_title(f'{selected_calib_file}\nFrame = {selected_frame} frame, Position = {selected_position} pixel')
     st.pyplot(fig)
-
+    plt.close(fig)
 
 # fitting
 display_handler.display_title_with_link(
@@ -207,6 +208,7 @@ fig = fitter.get_figure(model=fit_model)
 ax = fig.get_axes()[0] # titleを書き換えるために、axを取得し直す
 ax.set_title(f'{selected_calib_file}\nFrame = {selected_frame} frame, Position = {selected_position} pixel')
 st.pyplot(fig)
+plt.close(fig)
 
 if st.checkbox(label='警告が出たペアを可視化する', value=True):
     # plot
@@ -230,6 +232,7 @@ if st.checkbox(label='警告が出たペアを可視化する', value=True):
     plt.title("Warning Pairs Scatter Plot")
     plt.grid(True)
     st.pyplot(fig)
+    plt.close(fig)
 
 display_handler.display_title_with_link(
     title="4. 一括計算",
@@ -304,6 +307,7 @@ if st.checkbox(label='一括で計算を行う', value=False):
 
             x.append(i)
             progress_bar.progress((idx + 1) / len(loop_range))
+            gc.collect()
 
         planck_T = np.array(planck_T)
         planck_T_error = np.array(planck_T_error)
@@ -331,6 +335,7 @@ if st.checkbox(label='一括で計算を行う', value=False):
         ax.legend()
         ax.grid(True)
         st.pyplot(fig)
+        plt.close(fig)
 
         # 誤差の絶対値比較
         fig, ax = plt.subplots(figsize=(8, 6))
@@ -342,6 +347,7 @@ if st.checkbox(label='一括で計算を行う', value=False):
         ax.legend()
         ax.grid(True)
         st.pyplot(fig)
+        plt.close(fig)
 
         # 誤差の割合比較
         fig, ax = plt.subplots(figsize=(8, 6))
@@ -352,5 +358,6 @@ if st.checkbox(label='一括で計算を行う', value=False):
         ax.legend()
         ax.grid(True)
         st.pyplot(fig)
+        plt.close(fig)
 
         gc.collect()
